@@ -1,71 +1,155 @@
+const { log } = require("console");
+const fs = require("fs");
+const { loadavg } = require("os");
+
 class ProductManager {
   constructor() {
-    this.products = [];
+    this.path = "products.json";
   }
 
-  static id = 0;
+  async getProduct() {
+    try {
+      if (fs.existsSync(this.path)) {
+        const productsFile = await fs.promises.readFile(this.path, "utf-8");
 
-  addProduct(title, descrptiption, price, thumbnail, code, stock) {
-    const newProducts = {
-      title,
-      descrptiption,
-      price,
-      thumbnail,
-      code,
-      stock,
-    };
-
-    if (!this.products.find((item) => item.code === code)) {
-      if (!Object.values(newProducts).includes(undefined)) {
-        ProductManager.id++;
-
-        this.products.push({
-          ...newProducts,
-          id: ProductManager.id,
-        });
+        return JSON.parse(productsFile);
       } else {
-        console.log("FALTAN CAMPOS");
+        return [];
       }
-    } else {
-      console.log("el codigo YA EXISTE");
+    } catch (error) {
+      return error;
     }
   }
 
+  async addProduct(title, descrptiption, price, thumbnail, code, stock) {
+    try {
+      const products = await this.getProduct();
 
-  getProduct() {
-    return this.products;
+      let id;
+
+      if (!products.length) {
+        id = 1;
+      } else {
+        id = products[products.length - 1].id + 1;
+      }
+
+      const newProducts = {
+        title,
+        descrptiption,
+        price,
+        thumbnail,
+        code,
+        stock,
+      };
+
+      products.push({
+        ...newProducts,
+        id,
+      });
+
+      await fs.promises.writeFile(this.path, JSON.stringify(products));
+    } catch (error) {
+      return error;
+    }
   }
 
-  getProductById(id) {
-    !this.products.find((item) => item.id === id)
-      ? console.log("NOT FOUND")
-      : console.log(this.products.find((item) => item.id === id));
+  async getProductById(id) {
+    try {
+      const products = await this.getProduct();
+
+      const productoFiltrado = products.find((item) => item.id === id);
+
+      if (productoFiltrado) {
+        console.log(productoFiltrado);
+        return productoFiltrado;
+      } else {
+        console.log("NOT FOUND");
+      }
+    } catch (error) {
+      return error;
+    }
+  }
+
+  async deleteProductById(id) {
+    try {
+      const products = await this.getProduct();
+
+      const productoFiltrado = products.find((item) => item.id === id);
+
+      const products2 = products.filter((item) => {
+        return item.id != id;
+      });
+
+      if (productoFiltrado) {
+        await fs.promises.writeFile(this.path, JSON.stringify(products2));
+      } else {
+        console.log("PRODUCTO A ELIMINAR N0 EXITSE");
+      }
+    } catch (error) {
+      return error;
+    }
+  }
+
+  async updateProduct({ id, ...product }) {
+    try {
+      await this.deleteProductById(id);
+
+      let productList = await this.getProduct();
+      let productModificado = { ...product, id };
+      let productListModificado = [productModificado, ...productList];
+      console.log(productModificado);
+
+      await fs.promises.writeFile(
+        this.path,
+        JSON.stringify(productListModificado)
+      );
+    } catch (error) {
+      return error;
+    }
   }
 }
 
-const productos = new ProductManager();
+async function test() {
+  const productos = new ProductManager();
+  
+  console.log("Arreglo vacio");
+  console.log(await productos.getProduct());
 
-//Arreglo vacio
-console.log(productos.getProduct());
+  console.log("Agregando producto");
+  await productos.addProduct(
+    "titulo3",
+    "descripcion2",
+    25,
+    "xxxx2",
+    "abc123",
+    3
+  );
 
-// Agregamos 2 productos
-productos.addProduct("titulo1", "descripcion1", 25, "xxxx1", "abc123", 3);
-productos.addProduct("titulo2", "descripcion2", 10, "xxxx2", "abc124", 7);
+  const arrayProductos = await productos.getProduct();
+  console.log(arrayProductos);
 
-//Arreglo con los 2 productos
-console.log(productos.getProduct());
+  console.log("--BUSQUEDA POR ID--");
+  const BusquedaID = await productos.getProductById(3);
 
-//Agregramos producto con codigo ya existente (VALIDACION DE CODE REPETIDO)
-productos.addProduct("titulo3", "descripcion3", 10, "xxxx3", "abc124", 4);
-console.log(productos.getProduct());
+  console.log("--MODIFICACION  MANTENIENDO ID=");
+/*
+  await productos.updateProduct({
+    title: "titulo3",
+    descrptiption: "descripcion2",
+    price: 100000,
+    thumbnail: "yyyy2",
+    code: "abc123",
+    stock: 3,
+    id: 2,
+  });
 
-//Agregramos producto con falta de datos(VALIDACION DE CAMPOS)
-productos.addProduct("titulo4", "descripcion4", 10, "xxxx4", "abc125");
-console.log(productos.getProduct());
+*/
 
-//Busqueda por ID
-console.log("Producto filtrado por ID");
-productos.getProductById(2);
+  console.log("--BORRANDO PRODUCTO--");
+  await productos.deleteProductById(1)
+ 
+}
 
-//Validacion de ID existente
-productos.getProductById(3);
+
+
+test();
